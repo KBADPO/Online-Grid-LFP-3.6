@@ -1,0 +1,83 @@
+alias: "Зарядка LFP: Захист від перенапруги (SSR1)"
+description: "Вимикає SSR1 при високій напрузі та вмикає після нормалізації, якщо фізичний sw3 увімкнений"
+mode: restart
+
+trigger:
+  # 1. Напруга перевищила верхній поріг (наприклад, 250 В протягом 3 сек)
+  - platform: numeric_state
+    entity_id: sensor.wi_fi_socet_napruga
+    above: 250
+    for:
+      seconds: 3
+    id: high_voltage
+
+  # 2. Захист від 1-хвилинного таймера ESP32: якщо SSR1 увімкнувся сам, а напруга зараз висока
+  - platform: state
+    entity_id: switch.online_grid_lfp_3_6_ssr1_charge_power
+    to: "on"
+    id: ssr_turned_on_while_high
+
+  # 3. Напруга повернулася в норму (між 195 В та 242 В) і стабільна 1 хвилину
+  - platform: numeric_state
+    entity_id: sensor.wi_fi_socet_napruga
+    above: 195
+    below: 242
+    for:
+      minutes: 1
+    id: normal_voltage
+
+condition:
+  # Не втручаємося, якщо на ESP32 увімкнено Test Mode
+  - condition: state
+    entity_id: switch.online_grid_lfp_3_6_test_mode
+    state: "off"
+
+action:
+  - choose:
+      # --- СЦЕНАРІЙ 1: ВИМКНЕННЯ ПРИ ВИСОКІЙ НАПРУЗІ ---
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: high_voltage
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: ssr_turned_on_while_high
+                  - condition: numeric_state
+                    entity_id: sensor.wi_fi_socet_napruga
+                    above: 250
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.online_grid_lfp_3_6_ssr1_charge_power
+                - switch.online_grid_lfp_3_6_led_charger_sw
+
+      # --- СЦЕНАРІЙ 2: УВІМКНЕННЯ ПІСЛЯ НОРМАЛІЗАЦІЇ НАПРУГИ ---
+      - conditions:
+          - condition: trigger
+            id: normal_voltage
+          # Головна умова: фізичний тумблер sw3 (charger_sw) має бути УВІМКНЕНИЙ
+          - condition: state
+            entity_id: binary_sensor.online_grid_lfp_3_6_charger_sw
+            state: "on"
+          # На вході станції фізично присутня мережа 230В
+          - condition: state
+            entity_id: binary_sensor.online_grid_lfp_3_6_230v_grid
+            state: "on"
+          # SSR1 зараз вимкнений
+          - condition: state
+            entity_id: switch.online_grid_lfp_3_6_ssr1_charge_power
+            state: "off"
+          # Система не в стані аварії (BMS Lockout, перегрів, критичний SOC тощо)
+          - condition: state
+            entity_id: sensor.online_grid_lfp_3_6_system_status
+            state: "OK"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id:
+                - switch.online_grid_lfp_3_6_ssr1_charge_power
+                - switch.online_grid_lfp_3_6_led_charger_sw
+

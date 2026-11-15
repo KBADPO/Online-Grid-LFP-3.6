@@ -1,0 +1,16 @@
+# ESPHome build files
+.esphome/
+build/
+pioenvs/
+piolibdeps/
+
+# Personal secrets (NEVER commit secrets.yaml!)
+secrets.yaml
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+*~
+

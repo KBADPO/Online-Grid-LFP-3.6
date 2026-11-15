@@ -1,0 +1,236 @@
+views:
+  - title: Головна
+    path: main
+    icon: mdi:home
+    type: sidebar
+    badges: []
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: entity
+            entity: sensor.online_grid_lfp_3_6_system_status
+            name: Статус Системи
+            icon: mdi:information-outline
+          - type: markdown
+            title: Режим Роботи
+            content: >-
+              {% set sw = states('binary_sensor.online_grid_lfp_3_6_online_sw') %}
+              {% set led = states('switch.online_grid_lfp_3_6_led_online_sw') %}
+              {% if sw == 'on' and led == 'on' %}
+                <ha-icon icon="mdi:check-circle" style="color: green"></ha-icon> **Online / Active Mode**
+              {% elif sw == 'on' and led == 'off' %}
+                <ha-icon icon="mdi:alert-circle" style="color: orange"></ha-icon> **Transition / Waiting**
+              {% elif sw == 'off' %}
+                <ha-icon icon="mdi:minus-circle" style="color: grey"></ha-icon> **Secondary Mode**
+              {% else %}
+                <ha-icon icon="mdi:help-circle" style="color: red"></ha-icon> **Невідомо**
+              {% endif %}
+          - type: gauge
+            entity: sensor.online_grid_lfp_3_6_state_of_charge
+            name: Заряд (SOC)
+            min: 0
+            max: 100
+            severity:
+              green: 30
+              yellow: 15
+              red: 0
+          - type: entities
+            title: Енергія
+            entities:
+              - entity: sensor.online_grid_lfp_3_6_total_voltage
+                name: Загальна напруга
+              - entity: sensor.online_grid_lfp_3_6_current
+                name: Струм
+              - entity: sensor.online_grid_lfp_3_6_power
+                name: Потужність
+              - entity: sensor.online_grid_lfp_3_6_chrg_voltage_status
+                name: Статус зарядної напруги
+      - type: entities
+        title: Мережа та Інвертор
+        entities:
+          - entity: binary_sensor.online_grid_lfp_3_6_230v_grid
+            name: Мережа 230V
+          - entity: binary_sensor.online_grid_lfp_3_6_230v_inverter
+            name: Інвертор 230V
+          - entity: binary_sensor.online_grid_lfp_3_6_online_status
+            name: BMS Онлайн
+  - title: Акумулятор
+    path: battery
+    icon: mdi:battery-high
+    type: masonry
+    cards:
+      - type: entities
+        title: Стан Батареї
+        entities:
+          - entity: sensor.online_grid_lfp_3_6_capacity_remaining
+            name: Залишок ємності
+          - entity: sensor.online_grid_lfp_3_6_full_charge_capacity
+            name: Повна ємність
+          - entity: sensor.online_grid_lfp_3_6_charging_cycles
+            name: Цикли заряду
+          - entity: binary_sensor.online_grid_lfp_3_6_charging
+            name: Заряджається
+          - entity: binary_sensor.online_grid_lfp_3_6_discharging
+            name: Розряджається
+          - entity: binary_sensor.online_grid_lfp_3_6_balancing
+            name: Балансування
+      - type: entities
+        title: Комірки (Напруга)
+        entities:
+          - entity: sensor.online_grid_lfp_3_6_min_cell_voltage
+            name: Мін. напруга комірки
+          - entity: sensor.online_grid_lfp_3_6_max_cell_voltage
+            name: Макс. напруга комірки
+          - entity: sensor.online_grid_lfp_3_6_average_cell_voltage
+            name: Сер. напруга комірки
+          - entity: sensor.online_grid_lfp_3_6_delta_cell_voltage
+            name: Дельта напруги
+          - entity: sensor.online_grid_lfp_3_6_cell_voltage_1
+            name: Комірка 1
+          - entity: sensor.online_grid_lfp_3_6_cell_voltage_2
+            name: Комірка 2
+          - entity: sensor.online_grid_lfp_3_6_cell_voltage_3
+            name: Комірка 3
+          - entity: sensor.online_grid_lfp_3_6_cell_voltage_4
+            name: Комірка 4
+  - title: Охолодження
+    path: cooling
+    icon: mdi:fan
+    type: masonry
+    cards:
+      - type: entities
+        title: Датчики Температури
+        entities:
+          - entity: sensor.online_grid_lfp_3_6_temperature_charger
+            name: Температура Зарядки
+          - entity: sensor.online_grid_lfp_3_6_temperature_invertor
+            name: Температура Інвертора
+          - entity: sensor.online_grid_lfp_3_6_temperature_cell
+            name: Температура Комірок
+          - entity: sensor.online_grid_lfp_3_6_temperature_wire
+            name: Температура Проводів
+          - entity: sensor.online_grid_lfp_3_6_mosfet_temperature
+            name: Температура MOSFET
+      - type: entities
+        title: Вентилятор (Поточний Стан)
+        entities:
+          - entity: sensor.online_grid_lfp_3_6_fan_pwm_speed
+            name: Швидкість PWM вентилятора
+      - type: custom:expander-card
+        title: Налаштування Охолодження
+        cards:
+          - type: entities
+            entities:
+              - entity: number.online_grid_lfp_3_6_fan_t_min
+                name: Мін. температура вентилятора
+              - entity: number.online_grid_lfp_3_6_fan_t_max
+                name: Макс. температура вентилятора
+              - entity: number.online_grid_lfp_3_6_fan_t_hys
+                name: Гістерезис
+              - entity: number.online_grid_lfp_3_6_fan_gamma
+                name: Гамма
+              - entity: number.online_grid_lfp_3_6_fan_pwm_min
+                name: PWM мін.
+              - entity: number.online_grid_lfp_3_6_fan_pwm_max
+                name: PWM макс.
+              - entity: number.online_grid_lfp_3_6_fan_pwm_frequency
+                name: Частота PWM
+  - title: Керування
+    path: control
+    icon: mdi:tune
+    type: masonry
+    cards:
+      - type: entities
+        title: Реле та Перемикачі
+        show_header_toggle: false
+        entities:
+          - entity: switch.online_grid_lfp_3_6_chrg_voltage
+            name: Напруга заряду
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+          - entity: switch.online_grid_lfp_3_6_invertor_relay
+            name: Реле інвертора
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+          - entity: switch.online_grid_lfp_3_6_ssr1_charge_power
+            name: SSR1 Зарядка
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+      - type: entities
+        title: LED Індикатори
+        show_header_toggle: false
+        entities:
+          - entity: switch.online_grid_lfp_3_6_led_power_sw
+            name: LED Живлення
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+          - entity: switch.online_grid_lfp_3_6_led_online_sw
+            name: LED Онлайн
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+          - entity: switch.online_grid_lfp_3_6_led_charger_sw
+            name: LED Зарядка
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+          - entity: switch.online_grid_lfp_3_6_led_invertor_sw
+            name: LED Інвертор
+            type: simple-entity
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+      - type: entities
+        title: Критичні Налаштування
+        entities:
+          - entity: number.online_grid_lfp_3_6_min_soc_to_charge
+            name: Мін. SOC для заряду
+          - entity: number.online_grid_lfp_3_6_critical_soc
+            name: Критичний SOC
+          - entity: number.online_grid_lfp_3_6_critical_temperature
+            name: Критична Температура
+  - title: BMS Інфо та Скидання
+    path: bms_info
+    icon: mdi:shield-alert
+    type: masonry
+    cards:
+      - type: entities
+        title: Дії
+        entities:
+          - entity: button.online_grid_lfp_3_6_reset_bms_lockout
+            name: Скинути блокування BMS
+          - entity: button.online_grid_lfp_3_6_retrieve_settings
+            name: Отримати налаштування
+          - entity: button.online_grid_lfp_3_6_retrieve_device_info
+            name: Отримати інфо пристрою
+          - entity: button.online_grid_lfp_3_6_retrieve_logbook
+            name: Отримати журнал
+      - type: entities
+        title: Інформація BMS
+        entities:
+          - entity: sensor.online_grid_lfp_3_6_errors
+            name: Помилки
+          - entity: sensor.online_grid_lfp_3_6_balancer_status
+            name: Статус балансира
+          - entity: sensor.online_grid_lfp_3_6_total_runtime_formatted
+            name: Загальний час роботи
+          - entity: switch.online_grid_lfp_3_6_enable_bluetooth_connection
+            name: Bluetooth З'єднання
+
