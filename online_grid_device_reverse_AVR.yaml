@@ -1,6 +1,12 @@
+# ==============================================================================
+# Online Grid LFP 3.6 — ESPHome Configuration (Reverse ATS Wiring)
+# EN: Reverse ATS Wiring: ATS Input 1 (Priority) = 230V Inverter, ATS Input 2 = 230V Grid
+# UA: Реверсна схема АВР: Вхід 1 АВР (Основний) = Інвертор 230В, Вхід 2 АВР = Мережа 230В
+# ==============================================================================
+
 substitutions:
   name: online_grid_lfp_3_6
-  device_description: "Monitor and control a JK-BMS via bluetooth & Online Grid (Reverse AVR: In1=Inverter, In2=Grid)"
+  device_description: "Monitor and control a JK-BMS via bluetooth & Online Grid (Reverse ATS: In1=Inverter, In2=Grid)"
   external_components_source: github://syssi/esphome-jk-bms@main
   protocol_version: JK02_32S
 
@@ -12,12 +18,16 @@ esphome:
     name: "syssi.esphome-jk-bms"
     version: 3.0.0
   on_boot:
+    # EN: Priority 800 (earliest hardware init): set GPIO19 HIGH immediately to latch DC-DC 5V power supply
+    # UA: Пріоритет 800 (найраніший старт): миттєво вмикаємо GPIO19 для самопідхвату DC-DC 5В живлення
     - priority: 800
       then:
         - lambda: |-
             gpio_set_direction(GPIO_NUM_19, GPIO_MODE_OUTPUT);
             gpio_set_level(GPIO_NUM_19, 1);
             ESP_LOGI("boot", "GPIO19 (led_power_sw) set HIGH via direct register for power latch");
+    # EN: Priority -10 (after components init): check BMS lockout, critical SOC, and restore operating mode
+    # UA: Пріоритет -10 (після ініціалізації): перевірка блокування BMS, критичного SOC та стану тумблерів
     - priority: -10
       then:
         - switch.turn_on: led_power_sw
@@ -49,21 +59,24 @@ esphome:
                     - script.execute: fan_startup_test_script
                     - if:
                         condition:
-                          # sw2 увімкнено = Режим БАЙПАС
+                          # EN: sw2 ON = BYPASS Mode / UA: sw2 увімкнено = Режим БАЙПАС
                           binary_sensor.is_on: online_sw
                         then:
                           - if:
                               condition:
                                 binary_sensor.is_on: grid_230v
                               then:
-                                # Є мережа і увімкнено Байпас:
-                                # Інвертор не вмикаємо (LED4 вимк.), АВР вже на Вході 2 (Мережа) -> вмикаємо ручний режим АВР і LED2.
-                                # Зарядка (SSR1 + 14В + LED3) увімкнеться автоматично в charge_control_interval, якщо SOC < min_soc_charge.
+                                # EN: Grid is present & Bypass mode selected: keep Inverter OFF (LED4 OFF),
+                                #     lock ATS on Input 2 (Grid) via IO18 (LED2 ON).
+                                #     Charger (SSR1 + 14V + LED3) will start automatically in charge_control_interval if SOC < min_soc_charge.
+                                # UA: Є мережа і вибрано Байпас: інвертор не вмикаємо (LED4 вимк.), фіксуємо АВР на Вході 2 (Мережа) через IO18 (LED2 увімк.).
+                                #     Зарядка увімкнеться автоматично в charge_control_interval, якщо SOC < min_soc_charge.
                                 - switch.turn_off: invertor_relay
                                 - switch.turn_off: led_invertor_sw
                                 - switch.turn_on: led_online_sw
                               else:
-                                # Мережі немає при старті в режимі Байпас -> працюємо від інвертора (АВР в Авто = Вхід 1)
+                                # EN: No Grid at boot while in Bypass mode -> run from Inverter (ATS Auto = Input 1)
+                                # UA: Мережі немає при старті в режимі Байпас -> працюємо від інвертора (АВР в Авто = Вхід 1)
                                 - switch.turn_off: led_online_sw
                                 - if:
                                     condition:
@@ -76,7 +89,8 @@ esphome:
                                     then:
                                       - script.execute: blink_charger_no_grid_script
                         else:
-                          # sw2 вимкнено = Режим ОНЛАЙН (АВР в Авто, основний Вхід 1 = Інвертор)
+                          # EN: sw2 OFF = ONLINE Mode (ATS Auto, Priority Input 1 = Inverter)
+                          # UA: sw2 вимкнено = Режим ОНЛАЙН (АВР в Авто, основний Вхід 1 = Інвертор)
                           - switch.turn_off: led_online_sw
                           - if:
                               condition:
@@ -105,11 +119,15 @@ external_components:
   - source: github://syssi/esphome-jk-bms@main
     refresh: 0s
 
+# EN: reboot_timeout: 0s disables automatic reboot when Wi-Fi or Home Assistant is unreachable
+# UA: reboot_timeout: 0s вимикає перезавантаження ESP32 при відсутності Wi-Fi або зв'язку з Home Assistant
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   reboot_timeout: 0s
 
+# EN: Suspend BLE connection during OTA firmware update for stability
+# UA: Призупиняємо Bluetooth-з'єднання під час OTA-оновлення прошивки
 ota:
   platform: esphome
   on_begin:
@@ -142,6 +160,8 @@ jk_bms_ble:
     throttle: 5s
     id: bms0
 
+# EN: Global state variables (`bms_error_lockout` is persisted in Flash across reboots)
+# UA: Глобальні змінні стану (`bms_error_lockout` зберігається у Flash-пам'яті між перезавантаженнями)
 globals:
   - id: bms_has_connected
     type: bool
@@ -163,10 +183,14 @@ globals:
     type: bool
     initial_value: "false"
 
+# EN: 1-Wire bus for DS18B20 temperature sensors (Charger & Inverter heatsinks)
+# UA: Шина 1-Wire для датчиків температури DS18B20 (радіатори зарядки та інвертора)
 one_wire:
   - platform: gpio
     pin: GPIO33
 
+# EN: 20 kHz PWM output for cooling fans
+# UA: Вихід ШІМ (20 кГц) для керування корпусними вентиляторами
 output:
   - platform: ledc
     pin: GPIO27
@@ -174,6 +198,8 @@ output:
     frequency: 20000Hz
 
 script:
+  # EN: 3-second 100% fan spin-up test on boot
+  # UA: 3-секундний стартовий тест вентиляторів на 100% при завантаженні
   - id: fan_startup_test_script
     then:
       - output.set_level:
@@ -184,7 +210,16 @@ script:
       - component.update: temperature_charger
       - component.update: temperature_invertor
 
-  # Скрипт безпечного переходу в режим БАЙПАС (Вхід 2 = Мережа)
+  # EN: Safe transition into BYPASS mode (ATS Input 2 = Grid):
+  #     1. Release ATS Manual lock (Auto mode), turn off Inverter and LED 4.
+  #     2. If battery does not need charging by SOC, turn off SSR1, 14V relay, and LED 3.
+  #     3. Wait 3s for inverter 230V output to decay and ATS to transfer from Input 1 (Inverter) to Input 2 (Grid).
+  #     4. Turn on IO18 (led_online_sw) to lock ATS in Manual mode on Grid and illuminate LED 2.
+  # UA: Безпечний перехід у режим БАЙПАС (Вхід 2 АВР = Мережа):
+  #     1. Знімає блокування АВР (Auto), вимикає інвертор та LED 4.
+  #     2. Якщо зарядка по SOC не потрібна — вимикає SSR1, 14В та LED 3.
+  #     3. Чекає 3с, поки зникне 230В інвертора і АВР перемкнеться з Входу 1 (Інвертор) на Вхід 2 (Мережа).
+  #     4. Вмикає IO18 (led_online_sw): фіксує АВР у ручному режимі на Мережі та запалює LED 2.
   - id: enter_bypass_mode_script
     mode: restart
     then:
@@ -226,6 +261,8 @@ script:
                 then:
                   - switch.turn_on: led_online_sw
 
+  # EN: Blink LED 3 (1s ON / 1s OFF) when Charger switch (sw3) is ON but Grid 230V is absent at startup
+  # UA: Блимання LED 3 (1с ВКЛ / 1с ВИКЛ), коли увімкнено sw3, але немає мережі 230В на старті
   - id: blink_charger_no_grid_script
     mode: restart
     then:
@@ -261,6 +298,8 @@ script:
                 else:
                   - switch.turn_off: led_charger_sw
 
+  # EN: 1-minute delay before turning on SSR1 after Grid 230V appears (blinks LED 3: 2s ON / 2s OFF)
+  # UA: 1-хвилинна затримка перед увімкненням SSR1 після появи мережі 230В (блимає LED 3: 2с ВКЛ / 2с ВИКЛ)
   - id: blink_charger_wait_1min_script
     mode: restart
     then:
@@ -290,10 +329,12 @@ script:
             - if:
                 condition:
                   or:
-                    # В Онлайн-режимі (sw2 OFF) вмикаємо БЖ завжди
+                    # EN: In Online mode (sw2 OFF), always turn on Charger PSU
+                    # UA: В Онлайн-режимі (sw2 OFF) вмикаємо БЖ завжди
                     - not:
                         binary_sensor.is_on: online_sw
-                    # В Байпас-режимі (sw2 ON) вмикаємо БЖ тільки якщо потрібен заряд по SOC
+                    # EN: In Bypass mode (sw2 ON), turn on Charger PSU only if SOC < Min SOC to Charge
+                    # UA: В Байпас-режимі (sw2 ON) вмикаємо БЖ тільки якщо потрібен заряд по SOC
                     - lambda: |-
                         return id(state_of_charge).has_state() &&
                                id(min_soc_charge).has_state() &&
@@ -314,6 +355,8 @@ script:
                   - switch.turn_off: led_charger_sw
                   - switch.turn_off: chrg_voltage
 
+  # EN: Blink LED 3 (1s ON / 3s OFF) when Grid 230V is lost during operation
+  # UA: Блимання LED 3 (1с ВКЛ / 3с ВИКЛ), коли мережа 230В зникла під час роботи
   - id: blink_charger_grid_lost_script
     mode: restart
     then:
@@ -349,6 +392,8 @@ script:
                 else:
                   - switch.turn_off: led_charger_sw
 
+  # EN: Inverter startup sequence: turn on K2 relay, wait 5s, verify 230V inverter output
+  # UA: Запуск інвертора: увімкнення реле К2, очікування 5с, перевірка наявності 230В на виході інвертора
   - id: invertor_start_script
     mode: restart
     then:
@@ -380,6 +425,8 @@ script:
                       id: inverter_turn_on_wait
                       value: "true"
 
+  # EN: Fast blink LED 4 (500ms) on inverter fault or discharge overload
+  # UA: Швидке блимання LED 4 (500 мс) при аварії інвертора або перевантаженні по розряду
   - id: error_blink_invertor_script
     mode: restart
     then:
@@ -390,6 +437,8 @@ script:
             - switch.toggle: led_invertor_sw
             - delay: 500ms
 
+  # EN: Alternating blink LED 3 <-> LED 4 (500ms) on critical temperature or BMS lockout
+  # UA: Поперемінне блимання LED 3 <-> LED 4 (500 мс) при критичному перегріві або блокуванні BMS
   - id: error_blink_temp_script
     mode: restart
     then:
@@ -493,9 +542,13 @@ interval:
             - script.stop: blink_charger_wait_1min_script
             - script.stop: blink_charger_grid_lost_script
 
+  # EN: Charge & Bypass power management loop (every 5s)
+  # UA: Цикл керування зарядкою та живленням БЖ у режимах Онлайн і Байпас (кожні 5с)
   - interval: 5s
     id: charge_control_interval
     then:
+      # EN: In Bypass mode (sw2 ON) with Grid present and sw3 ON: automatically wake up Charger if SOC drops below Min SOC to Charge
+      # UA: Якщо система в Байпасі (sw2 ON), є мережа і увімкнено sw3, але SSR1 вимкнений, а SOC < Min SOC to Charge — вмикаємо зарядку
       - if:
           condition:
             and:
@@ -546,6 +599,8 @@ interval:
                         lambda: 'return id(balancing_duration_seconds) >= 900;'
                       then:
                         - switch.turn_off: chrg_voltage
+                        # EN: In Bypass mode (sw2 ON), completely turn off SSR1 and LED 3 once charging & balancing finish
+                        # UA: У режимі Байпас (sw2 ON) після завершення заряду повністю вимикаємо SSR1 і LED 3
                         - if:
                             condition:
                               binary_sensor.is_on: online_sw
@@ -556,6 +611,8 @@ interval:
                   - globals.set:
                       id: balancing_duration_seconds
                       value: '0'
+                  # EN: In Bypass mode (sw2 ON), if 14V bulk charge is not active and SOC >= Min SOC to Charge, keep SSR1 & LED 3 OFF
+                  # UA: Якщо в режимі Байпас (sw2 ON) активний заряд 14В не йде і SOC >= Min SOC to Charge — тримаємо SSR1 та LED 3 вимкненими
                   - if:
                       condition:
                         and:
@@ -578,6 +635,8 @@ interval:
                       id: balancing_duration_seconds
                       value: '0'
 
+  # EN: Main safety & error monitoring loop (runs every 2 seconds)
+  # UA: Основний цикл моніторингу помилок та захистів (кожні 2 секунди)
   - interval: 2s
     id: error_monitor
     then:
@@ -692,6 +751,10 @@ interval:
                   - script.execute: error_blink_temp_script
 
 binary_sensor:
+  # EN: SW2 (GPIO36): ON = BYPASS Mode (Inverter OFF when Grid is present, Charger runs only on low SOC, IO18 locks ATS on Grid)
+  #                   OFF = ONLINE Mode (Inverter & Charger run continuously, IO18 OFF -> ATS in Auto on Priority Input 1 = Inverter)
+  # UA: SW2 (GPIO36): ON = Режим БАЙПАС (при наявності мережі інвертор вимкнено, зарядка тільки по SOC, IO18 фіксує АВР на мережі)
+  #                   OFF = Режим ОНЛАЙН (інвертор та зарядка працюють постійно, IO18 вимкнено -> АВР в Авто на Вході 1 = Інвертор)
   - platform: gpio
     pin:
       number: GPIO36
@@ -718,6 +781,8 @@ binary_sensor:
               - switch.is_off: test_mode
               - lambda: 'return !id(bms_error_lockout);'
           then:
+            # EN: Transition from Bypass to Online: release ATS Manual mode (IO18 OFF), start Inverter & Charger
+            # UA: Перехід з Байпасу в Онлайн: знімаємо ручний режим АВР (IO18 OFF), запускаємо інвертор та зарядку
             - script.stop: enter_bypass_mode_script
             - switch.turn_off: led_online_sw
             - if:
@@ -745,6 +810,8 @@ binary_sensor:
                       else:
                         - script.execute: blink_charger_no_grid_script
 
+  # EN: SW3 (GPIO39) — Charger Enable Switch
+  # UA: SW3 (GPIO39) — Кнопка дозволу роботи зарядного пристрою
   - platform: gpio
     pin:
       number: GPIO39
@@ -803,6 +870,8 @@ binary_sensor:
       - switch.turn_off: led_charger_sw
       - switch.turn_off: chrg_voltage
 
+  # EN: SW4 (GPIO34) — Inverter Enable Switch
+  # UA: SW4 (GPIO34) — Кнопка дозволу роботи інвертора
   - platform: gpio
     pin:
       number: GPIO34
@@ -840,6 +909,8 @@ binary_sensor:
       - switch.turn_off: led_invertor_sw
       - script.stop: error_blink_invertor_script
 
+  # EN: 230V AC Grid Input Sensor (GPIO35)
+  # UA: Датчик наявності вхідної мережі 230В (GPIO35)
   - platform: gpio
     pin:
       number: GPIO35
@@ -854,6 +925,8 @@ binary_sensor:
               - switch.is_off: test_mode
               - lambda: 'return !id(bms_error_lockout);'
           then:
+            # EN: Grid lost: release ATS Manual lock (IO18 OFF), start Inverter (ATS switches to Input 1), blink Charger LED 3
+            # UA: Зникла мережа: вимикаємо ручний режим АВР (IO18 OFF), вмикаємо інвертор (АВР переходить на Вхід 1), блимаємо LED 3
             - script.stop: enter_bypass_mode_script
             - switch.turn_off: led_online_sw
             - if:
@@ -879,6 +952,8 @@ binary_sensor:
               - switch.is_off: test_mode
               - lambda: 'return !id(bms_error_lockout);'
           then:
+            # EN: Grid restored: if sw2 (Bypass) is ON, stop Inverter, transfer ATS to Grid, lock IO18, and start Charger only if SOC < Min SOC
+            # UA: Відновилася мережа: при увімкненому sw2 (Байпас) вимикаємо інвертор, фіксуємо АВР на мережі, зарядку вмикаємо лише при низькому SOC
             - if:
                 condition:
                   binary_sensor.is_on: online_sw
@@ -914,6 +989,8 @@ binary_sensor:
                         - switch.turn_off: led_charger_sw
                         - script.execute: blink_charger_wait_1min_script
 
+  # EN: 230V AC Inverter Output Sensor (GPIO32)
+  # UA: Датчик наявності 230В на виході інвертора (GPIO32)
   - platform: gpio
     pin:
       number: GPIO32
@@ -1393,4 +1470,3 @@ text_sensor:
       name: "software version"
     hardware_version:
       name: "hardware version"
-

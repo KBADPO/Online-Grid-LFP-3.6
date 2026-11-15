@@ -1,6 +1,12 @@
+# ==============================================================================
+# Online Grid LFP 3.6 — ESPHome Configuration (Classic ATS Wiring)
+# EN: Classic ATS Wiring: ATS Input 1 (Priority) = 230V Grid, ATS Input 2 = 230V Inverter
+# UA: Класична схема АВР: Вхід 1 АВР (Основний) = Мережа 230В, Вхід 2 АВР = Інвертор 230В
+# ==============================================================================
+
 substitutions:
   name: online_grid_lfp_3_6
-  device_description: "Monitor and control a JK-BMS via bluetooth & Online Grid"
+  device_description: "Monitor and control a JK-BMS via bluetooth & Online Grid (Classic ATS: In1=Grid, In2=Inverter)"
   external_components_source: github://syssi/esphome-jk-bms@main
   protocol_version: JK02_32S
 
@@ -12,12 +18,16 @@ esphome:
     name: "syssi.esphome-jk-bms"
     version: 3.0.0
   on_boot:
+    # EN: Priority 800 (earliest hardware init): set GPIO19 HIGH immediately to latch DC-DC 5V power supply
+    # UA: Пріоритет 800 (найраніший старт): миттєво вмикаємо GPIO19 для самопідхвату DC-DC 5В живлення
     - priority: 800
       then:
         - lambda: |-
             gpio_set_direction(GPIO_NUM_19, GPIO_MODE_OUTPUT);
             gpio_set_level(GPIO_NUM_19, 1);
             ESP_LOGI("boot", "GPIO19 (led_power_sw) set HIGH via direct register for power latch");
+    # EN: Priority -10 (after components init): check BMS lockout, critical SOC, and restore operating mode from physical switches
+    # UA: Пріоритет -10 (після ініціалізації): перевірка блокування BMS, критичного SOC та стану фізичних тумблерів
     - priority: -10
       then:
         - switch.turn_on: led_power_sw
@@ -86,11 +96,15 @@ external_components:
   - source: github://syssi/esphome-jk-bms@main
     refresh: 0s
 
+# EN: reboot_timeout: 0s disables automatic reboot when Wi-Fi or Home Assistant is unreachable
+# UA: reboot_timeout: 0s вимикає перезавантаження ESP32 при відсутності Wi-Fi або зв'язку з Home Assistant
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   reboot_timeout: 0s
 
+# EN: Suspend BLE connection during OTA firmware update for stability
+# UA: Призупиняємо Bluetooth-з'єднання під час OTA-оновлення прошивки
 ota:
   platform: esphome
   on_begin:
@@ -123,6 +137,8 @@ jk_bms_ble:
     throttle: 5s
     id: bms0
 
+# EN: Global state variables (`bms_error_lockout` is persisted in Flash across reboots)
+# UA: Глобальні змінні стану (`bms_error_lockout` зберігається у Flash-пам'яті між перезавантаженнями)
 globals:
   - id: bms_has_connected
     type: bool
@@ -144,10 +160,14 @@ globals:
     type: bool
     initial_value: "false"
 
+# EN: 1-Wire bus for DS18B20 temperature sensors (Charger & Inverter heatsinks)
+# UA: Шина 1-Wire для датчиків температури DS18B20 (радіатори зарядки та інвертора)
 one_wire:
   - platform: gpio
     pin: GPIO33
 
+# EN: 20 kHz PWM output for cooling fans
+# UA: Вихід ШІМ (20 кГц) для керування корпусними вентиляторами
 output:
   - platform: ledc
     pin: GPIO27
@@ -155,6 +175,8 @@ output:
     frequency: 20000Hz
 
 script:
+  # EN: 3-second 100% fan spin-up test on boot
+  # UA: 3-секундний стартовий тест вентиляторів на 100% при завантаженні
   - id: fan_startup_test_script
     then:
       - output.set_level:
@@ -165,6 +187,8 @@ script:
       - component.update: temperature_charger
       - component.update: temperature_invertor
 
+  # EN: Blink LED 3 (1s ON / 1s OFF) when Charger switch (sw3) is ON but Grid 230V is absent at startup
+  # UA: Блимання LED 3 (1с ВКЛ / 1с ВИКЛ), коли увімкнено sw3, але немає мережі 230В на старті
   - id: blink_charger_no_grid_script
     mode: restart
     then:
@@ -188,6 +212,8 @@ script:
           then:
             - script.execute: blink_charger_wait_1min_script
 
+  # EN: 1-minute delay before turning on SSR1 after Grid 230V appears (blinks LED 3: 2s ON / 2s OFF)
+  # UA: 1-хвилинна затримка перед увімкненням SSR1 після появи мережі 230В (блимає LED 3: 2с ВКЛ / 2с ВИКЛ)
   - id: blink_charger_wait_1min_script
     mode: restart
     then:
@@ -216,6 +242,8 @@ script:
             - switch.turn_on: ssr1
             - switch.turn_on: led_charger_sw
 
+  # EN: Blink LED 3 (1s ON / 3s OFF) when Grid 230V is lost during operation
+  # UA: Блимання LED 3 (1с ВКЛ / 3с ВИКЛ), коли мережа 230В зникла під час роботи
   - id: blink_charger_grid_lost_script
     mode: restart
     then:
@@ -239,6 +267,8 @@ script:
           then:
             - script.execute: blink_charger_wait_1min_script
 
+  # EN: Inverter startup sequence: turn on K2 relay, wait 5s, verify 230V inverter output
+  # UA: Запуск інвертора: увімкнення реле К2, очікування 5с, перевірка наявності 230В на виході інвертора
   - id: invertor_start_script
     mode: restart
     then:
@@ -270,6 +300,8 @@ script:
                       id: inverter_turn_on_wait
                       value: "true"
 
+  # EN: Fast blink LED 4 (500ms) on inverter fault or discharge overload
+  # UA: Швидке блимання LED 4 (500 мс) при аварії інвертора або перевантаженні по розряду
   - id: error_blink_invertor_script
     mode: restart
     then:
@@ -280,6 +312,8 @@ script:
             - switch.toggle: led_invertor_sw
             - delay: 500ms
 
+  # EN: Alternating blink LED 3 <-> LED 4 (500ms) on critical temperature or BMS lockout
+  # UA: Поперемінне блимання LED 3 <-> LED 4 (500 мс) при критичному перегріві або блокуванні BMS
   - id: error_blink_temp_script
     mode: restart
     then:
@@ -295,6 +329,8 @@ script:
             - delay: 500ms
 
 interval:
+  # EN: Blink LED 4 (1s) while waiting for inverter 230V output
+  # UA: Блимання LED 4 (1с) під час очікування появи 230В на виході інвертора
   - interval: 1s
     id: inverter_blink_interval
     then:
@@ -307,6 +343,8 @@ interval:
           then:
             - switch.toggle: led_invertor_sw
 
+  # EN: Critical SOC check at boot (shuts down station including GPIO19 power latch if SOC < Critical SOC and no Grid for 20s)
+  # UA: Перевірка критичного SOC на старті (повне вимкнення станції включно з GPIO19, якщо SOC < Critical SOC і немає мережі 20с)
   - interval: 1s
     id: soc_critical_check
     then:
@@ -352,6 +390,8 @@ interval:
                   - script.stop: blink_charger_wait_1min_script
                   - script.stop: blink_charger_grid_lost_script
 
+  # EN: Unconditional shutdown if SOC drops below Critical SOC during operation
+  # UA: Безумовне вимкнення станції, якщо під час роботи SOC впав нижче Critical SOC
   - interval: 5s
     id: soc_unconditional_shutdown
     then:
@@ -381,6 +421,8 @@ interval:
             - script.stop: blink_charger_wait_1min_script
             - script.stop: blink_charger_grid_lost_script
 
+  # EN: Charge voltage control (14V bulk start when SOC < Min SOC to Charge; return to 13.5V float after 15 min at 100% & cell delta < 0.01V)
+  # UA: Керування зарядкою (старт 14В при SOC < Min SOC to Charge; перехід на 13.5В після 15 хв при 100% та дельті < 0.01В)
   - interval: 5s
     id: charge_control_interval
     then:
@@ -428,6 +470,8 @@ interval:
                       id: balancing_duration_seconds
                       value: '0'
 
+  # EN: Main safety & error monitoring loop (runs every 2 seconds)
+  # UA: Основний цикл моніторингу помилок та захистів (кожні 2 секунди)
   - interval: 2s
     id: error_monitor
     then:
@@ -539,7 +583,11 @@ interval:
                       state: "Error: Critical Temperature!"
                   - script.execute: error_blink_temp_script
 
+# EN: Physical Inputs (Switches SW2-SW4 and 230V Optocoupler Sensors)
+# UA: Фізичні входи (Кнопки SW2-SW4 та оптопари контролю 230В)
 binary_sensor:
+  # EN: SW2 (GPIO36) — Online Mode Switch (ON = Online mode after first grid loss, OFF = Auto ATS Offline mode)
+  # UA: SW2 (GPIO36) — Перемикач режиму Онлайн (ON = Онлайн після першого зникнення мережі, OFF = Офлайн авто-АВР)
   - platform: gpio
     pin:
       number: GPIO36
@@ -567,6 +615,9 @@ binary_sensor:
             switch.is_off: test_mode
           then:
             - switch.turn_off: led_online_sw
+
+  # EN: SW3 (GPIO39) — Charger Enable Switch
+  # UA: SW3 (GPIO39) — Кнопка дозволу роботи зарядного пристрою
   - platform: gpio
     pin:
       number: GPIO39
@@ -602,6 +653,9 @@ binary_sensor:
       - switch.turn_off: ssr1
       - switch.turn_off: led_charger_sw
       - switch.turn_off: chrg_voltage
+
+  # EN: SW4 (GPIO34) — Inverter Enable Switch
+  # UA: SW4 (GPIO34) — Кнопка дозволу роботи інвертора
   - platform: gpio
     pin:
       number: GPIO34
@@ -629,6 +683,9 @@ binary_sensor:
       - switch.turn_off: invertor_relay
       - switch.turn_off: led_invertor_sw
       - script.stop: error_blink_invertor_script
+
+  # EN: 230V AC Grid Input Sensor (GPIO35)
+  # UA: Датчик наявності вхідної мережі 230В (GPIO35)
   - platform: gpio
     pin:
       number: GPIO35
@@ -676,6 +733,9 @@ binary_sensor:
                   - script.stop: blink_charger_grid_lost_script
                   - switch.turn_off: led_charger_sw
                   - script.execute: blink_charger_wait_1min_script
+
+  # EN: 230V AC Inverter Output Sensor (GPIO32)
+  # UA: Датчик наявності 230В на виході інвертора (GPIO32)
   - platform: gpio
     pin:
       number: GPIO32
@@ -689,6 +749,7 @@ binary_sensor:
             binary_sensor.is_on: online_sw
           then:
             - switch.turn_off: led_online_sw
+
   - platform: jk_bms_ble
     balancing:
       name: "balancing"
@@ -709,6 +770,8 @@ binary_sensor:
             value: "true"
 
 button:
+  # EN: Button in Home Assistant to clear persistent BMS lockout after inspecting battery
+  # UA: Кнопка в Home Assistant для скидання блокування BMS після перевірки батареї
   - platform: template
     name: "Reset BMS Lockout"
     id: reset_bms_lockout
@@ -733,6 +796,8 @@ button:
     retrieve_logbook:
       name: "retrieve logbook"
 
+# EN: Configurable thresholds and fan curve settings (saved in ESP32 flash memory)
+# UA: Налаштування порогів заряду, захистів та кривої вентиляторів (зберігаються у Flash ESP32)
 number:
   - platform: template
     name: "Min SOC to Charge"
@@ -906,6 +971,8 @@ number:
     mosfet_overtemperature_protection_recovery:
       name: "mosfet overtemperature protection recovery"
 
+# EN: Temperature sensors (DS18B20) with non-linear gamma fan speed control and JK-BMS telemetry
+# UA: Датчики температури (DS18B20) з нелінійним керуванням вентиляторами та телеметрія JK-BMS
 sensor:
   - platform: dallas_temp
     address: !secret dallas_charger_address
@@ -1049,7 +1116,11 @@ sensor:
     balancing_current:
       name: "balancing current"
 
+# EN: Relay outputs (K1, K2, SSR1), Button LED indicators (LED1-LED4), and Test Mode switch
+# UA: Виходи реле (K1, K2, SSR1), світлодіоди кнопок (LED1-LED4) та перемикач Test Mode
 switch:
+  # EN: K1 Relay (GPIO22) — Charger Voltage Selection: OFF = 13.5V(float), ON = 14V(bulk)
+  # UA: Реле К1 (GPIO22) — Вибір напруги зарядки: OFF = 13.5V(float), ON = 14V(bulk)
   - platform: gpio
     pin:
       number: GPIO22
@@ -1066,32 +1137,46 @@ switch:
         - text_sensor.template.publish:
             id: chrg_voltage_status
             state: "13.5V(float)"
+  # EN: K2 Relay (GPIO23) — Inverter Power Switch
+  # UA: Реле К2 (GPIO23) — Увімкнення інвертора
   - platform: gpio
     pin:
       number: GPIO23
       inverted: true
     name: "invertor_relay"
     id: invertor_relay
+  # EN: SSR1 Solid State Relay (GPIO21) — 230V AC supply to Charger PSU
+  # UA: Твердотільне реле SSR1 (GPIO21) — Подача 230В на блок живлення зарядки
   - platform: gpio
     pin: GPIO21
     name: "SSR1 Charge Power"
     id: ssr1
+  # EN: LED 1 (GPIO19) — Power button LED + DC-DC 5V power latch
+  # UA: LED 1 (GPIO19) — Підсвітка кнопки живлення + утримання DC-DC 5В
   - platform: gpio
     pin: GPIO19
     name: "led_power_sw"
     id: led_power_sw
+  # EN: LED 2 (GPIO18) — SW2 button LED + ATS Manual Mode trigger
+  # UA: LED 2 (GPIO18) — Підсвітка кнопки SW2 + переведення АВР у ручний режим
   - platform: gpio
     pin: GPIO18
     name: "led_online_sw"
     id: led_online_sw
+  # EN: LED 3 (GPIO17) — SW3 Charger button LED
+  # UA: LED 3 (GPIO17) — Підсвітка кнопки зарядки SW3
   - platform: gpio
     pin: GPIO17
     name: "led_charger_sw"
     id: led_charger_sw
+  # EN: LED 4 (GPIO16) — SW4 Inverter button LED
+  # UA: LED 4 (GPIO16) — Підсвітка кнопки інвертора SW4
   - platform: gpio
     pin: GPIO16
     name: "led_invertor_sw"
     id: led_invertor_sw
+  # EN: Test Mode — disables automation logic to allow manual testing of relays, LEDs, and fans
+  # UA: Режим тестування — вимикає автоматику для ручної перевірки реле, світлодіодів та вентиляторів
   - platform: template
     name: "Test Mode"
     id: test_mode
@@ -1159,4 +1244,3 @@ text_sensor:
       name: "software version"
     hardware_version:
       name: "hardware version"
-

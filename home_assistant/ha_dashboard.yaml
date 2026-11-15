@@ -1,5 +1,7 @@
+# EN: Home Assistant Dashboard for Online Grid LFP 3.6 (Bilingual EN / UA)
+# UA: Панель керування Home Assistant для Online Grid LFP 3.6 (Двомовна EN / UA)
 views:
-  - title: Головна
+  - title: Main / Головна
     path: main
     icon: mdi:home
     type: sidebar
@@ -9,25 +11,25 @@ views:
         cards:
           - type: entity
             entity: sensor.online_grid_lfp_3_6_system_status
-            name: Статус Системи
+            name: System Status / Статус Системи
             icon: mdi:information-outline
           - type: markdown
-            title: Режим Роботи
+            title: Operating Mode / Режим Роботи
             content: >-
               {% set sw = states('binary_sensor.online_grid_lfp_3_6_online_sw') %}
               {% set led = states('switch.online_grid_lfp_3_6_led_online_sw') %}
               {% if sw == 'on' and led == 'on' %}
-                <ha-icon icon="mdi:check-circle" style="color: green"></ha-icon> **Online / Active Mode**
+                <ha-icon icon="mdi:check-circle" style="color: green"></ha-icon> **Manual ATS Locked (Active) / Ручний режим АВР активний**
               {% elif sw == 'on' and led == 'off' %}
-                <ha-icon icon="mdi:alert-circle" style="color: orange"></ha-icon> **Transition / Waiting**
+                <ha-icon icon="mdi:alert-circle" style="color: orange"></ha-icon> **Standby (Waiting for Transition) / Очікування переходу**
               {% elif sw == 'off' %}
-                <ha-icon icon="mdi:minus-circle" style="color: grey"></ha-icon> **Secondary Mode**
+                <ha-icon icon="mdi:minus-circle" style="color: grey"></ha-icon> **Auto ATS Mode / Автоматичний режим АВР**
               {% else %}
-                <ha-icon icon="mdi:help-circle" style="color: red"></ha-icon> **Невідомо**
+                <ha-icon icon="mdi:help-circle" style="color: red"></ha-icon> **Unknown / Невідомо**
               {% endif %}
           - type: gauge
             entity: sensor.online_grid_lfp_3_6_state_of_charge
-            name: Заряд (SOC)
+            name: State of Charge (SOC) / Заряд АКБ
             min: 0
             max: 100
             severity:
@@ -35,202 +37,201 @@ views:
               yellow: 15
               red: 0
           - type: entities
-            title: Енергія
+            title: Power & Energy / Енергія
             entities:
               - entity: sensor.online_grid_lfp_3_6_total_voltage
-                name: Загальна напруга
+                name: Total Voltage / Загальна напруга
               - entity: sensor.online_grid_lfp_3_6_current
-                name: Струм
+                name: Current / Струм
               - entity: sensor.online_grid_lfp_3_6_power
-                name: Потужність
+                name: Power / Потужність
               - entity: sensor.online_grid_lfp_3_6_chrg_voltage_status
-                name: Статус зарядної напруги
+                name: Charge Voltage Mode / Режим напруги заряду
       - type: entities
-        title: Мережа та Інвертор
+        title: Grid & Inverter / Мережа та Інвертор
         entities:
           - entity: binary_sensor.online_grid_lfp_3_6_230v_grid
-            name: Мережа 230V
+            name: 230V Grid / Мережа 230В
           - entity: binary_sensor.online_grid_lfp_3_6_230v_inverter
-            name: Інвертор 230V
+            name: 230V Inverter / Інвертор 230В
           - entity: binary_sensor.online_grid_lfp_3_6_online_status
-            name: BMS Онлайн
-  - title: Акумулятор
+            name: BMS Online / Зв'язок з BMS
+  - title: Battery / Акумулятор
     path: battery
     icon: mdi:battery-high
     type: masonry
     cards:
       - type: entities
-        title: Стан Батареї
+        title: Battery Health / Стан Батареї
         entities:
           - entity: sensor.online_grid_lfp_3_6_capacity_remaining
-            name: Залишок ємності
+            name: Capacity Remaining / Залишок ємності
           - entity: sensor.online_grid_lfp_3_6_full_charge_capacity
-            name: Повна ємність
+            name: Full Charge Capacity / Повна ємність
           - entity: sensor.online_grid_lfp_3_6_charging_cycles
-            name: Цикли заряду
+            name: Charging Cycles / Цикли заряду
           - entity: binary_sensor.online_grid_lfp_3_6_charging
-            name: Заряджається
+            name: Charging Allowed / Заряд дозволено
           - entity: binary_sensor.online_grid_lfp_3_6_discharging
-            name: Розряджається
+            name: Discharging Allowed / Розряд дозволено
           - entity: binary_sensor.online_grid_lfp_3_6_balancing
-            name: Балансування
+            name: Balancing Active / Балансування
       - type: entities
-        title: Комірки (Напруга)
+        title: Cell Voltages / Напруга Комірок
         entities:
           - entity: sensor.online_grid_lfp_3_6_min_cell_voltage
-            name: Мін. напруга комірки
+            name: Min Cell Voltage / Мін. напруга комірки
           - entity: sensor.online_grid_lfp_3_6_max_cell_voltage
-            name: Макс. напруга комірки
+            name: Max Cell Voltage / Макс. напруга комірки
           - entity: sensor.online_grid_lfp_3_6_average_cell_voltage
-            name: Сер. напруга комірки
+            name: Average Cell Voltage / Сер. напруга комірки
           - entity: sensor.online_grid_lfp_3_6_delta_cell_voltage
-            name: Дельта напруги
+            name: Delta Cell Voltage / Дельта напруги
           - entity: sensor.online_grid_lfp_3_6_cell_voltage_1
-            name: Комірка 1
+            name: Cell 1 / Комірка 1
           - entity: sensor.online_grid_lfp_3_6_cell_voltage_2
-            name: Комірка 2
+            name: Cell 2 / Комірка 2
           - entity: sensor.online_grid_lfp_3_6_cell_voltage_3
-            name: Комірка 3
+            name: Cell 3 / Комірка 3
           - entity: sensor.online_grid_lfp_3_6_cell_voltage_4
-            name: Комірка 4
-  - title: Охолодження
+            name: Cell 4 / Комірка 4
+  - title: Cooling / Охолодження
     path: cooling
     icon: mdi:fan
     type: masonry
     cards:
       - type: entities
-        title: Датчики Температури
+        title: Temperature Sensors / Датчики Температури
         entities:
           - entity: sensor.online_grid_lfp_3_6_temperature_charger
-            name: Температура Зарядки
+            name: Charger Temp / Температура Зарядки
           - entity: sensor.online_grid_lfp_3_6_temperature_invertor
-            name: Температура Інвертора
+            name: Inverter Temp / Температура Інвертора
           - entity: sensor.online_grid_lfp_3_6_temperature_cell
-            name: Температура Комірок
+            name: Cell Temp / Температура Комірок
           - entity: sensor.online_grid_lfp_3_6_temperature_wire
-            name: Температура Проводів
+            name: Wire Temp / Температура Проводів
           - entity: sensor.online_grid_lfp_3_6_mosfet_temperature
-            name: Температура MOSFET
+            name: MOSFET Temp / Температура MOSFET
       - type: entities
-        title: Вентилятор (Поточний Стан)
+        title: Fan Status / Стан Вентилятора
         entities:
           - entity: sensor.online_grid_lfp_3_6_fan_pwm_speed
-            name: Швидкість PWM вентилятора
+            name: Fan PWM Speed / Швидкість PWM вентилятора
       - type: custom:expander-card
-        title: Налаштування Охолодження
+        title: Cooling Settings / Налаштування Охолодження
         cards:
           - type: entities
             entities:
               - entity: number.online_grid_lfp_3_6_fan_t_min
-                name: Мін. температура вентилятора
+                name: Fan T Min / Мін. температура
               - entity: number.online_grid_lfp_3_6_fan_t_max
-                name: Макс. температура вентилятора
+                name: Fan T Max / Макс. температура
               - entity: number.online_grid_lfp_3_6_fan_t_hys
-                name: Гістерезис
+                name: Fan T Hysteresis / Гістерезис
               - entity: number.online_grid_lfp_3_6_fan_gamma
-                name: Гамма
+                name: Fan Gamma / Гамма кривої
               - entity: number.online_grid_lfp_3_6_fan_pwm_min
-                name: PWM мін.
+                name: Fan PWM Min / Мін. оберти PWM
               - entity: number.online_grid_lfp_3_6_fan_pwm_max
-                name: PWM макс.
+                name: Fan PWM Max / Макс. оберти PWM
               - entity: number.online_grid_lfp_3_6_fan_pwm_frequency
-                name: Частота PWM
-  - title: Керування
+                name: Fan PWM Frequency / Частота PWM
+  - title: Control / Керування
     path: control
     icon: mdi:tune
     type: masonry
     cards:
       - type: entities
-        title: Реле та Перемикачі
+        title: Relays & Outputs / Реле та Виходи
         show_header_toggle: false
         entities:
           - entity: switch.online_grid_lfp_3_6_chrg_voltage
-            name: Напруга заряду
+            name: Charge Voltage Relay (K1) / Реле напруги заряду
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
           - entity: switch.online_grid_lfp_3_6_invertor_relay
-            name: Реле інвертора
+            name: Inverter Relay (K2) / Реле інвертора
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
           - entity: switch.online_grid_lfp_3_6_ssr1_charge_power
-            name: SSR1 Зарядка
+            name: SSR1 Charger 230V / SSR1 Зарядка 230В
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
       - type: entities
-        title: LED Індикатори
+        title: LED Indicators / LED Індикатори
         show_header_toggle: false
         entities:
           - entity: switch.online_grid_lfp_3_6_led_power_sw
-            name: LED Живлення
+            name: LED 1 Power / Живлення
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
           - entity: switch.online_grid_lfp_3_6_led_online_sw
-            name: LED Онлайн
+            name: LED 2 Mode & Manual ATS / Режим та АВР
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
           - entity: switch.online_grid_lfp_3_6_led_charger_sw
-            name: LED Зарядка
+            name: LED 3 Charger / Зарядка
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
           - entity: switch.online_grid_lfp_3_6_led_invertor_sw
-            name: LED Інвертор
+            name: LED 4 Inverter / Інвертор
             type: simple-entity
             tap_action:
               action: none
             hold_action:
               action: none
       - type: entities
-        title: Критичні Налаштування
+        title: Threshold Settings / Критичні Налаштування
         entities:
           - entity: number.online_grid_lfp_3_6_min_soc_to_charge
-            name: Мін. SOC для заряду
+            name: Min SOC to Charge / Мін. SOC для заряду
           - entity: number.online_grid_lfp_3_6_critical_soc
-            name: Критичний SOC
+            name: Critical SOC / Критичний SOC
           - entity: number.online_grid_lfp_3_6_critical_temperature
-            name: Критична Температура
-  - title: BMS Інфо та Скидання
+            name: Critical Temperature / Критична Температура
+  - title: BMS Info & Reset / BMS Інфо та Скидання
     path: bms_info
     icon: mdi:shield-alert
     type: masonry
     cards:
       - type: entities
-        title: Дії
+        title: Actions / Дії
         entities:
           - entity: button.online_grid_lfp_3_6_reset_bms_lockout
-            name: Скинути блокування BMS
+            name: Reset BMS Lockout / Скинути блокування BMS
           - entity: button.online_grid_lfp_3_6_retrieve_settings
-            name: Отримати налаштування
+            name: Retrieve Settings / Отримати налаштування
           - entity: button.online_grid_lfp_3_6_retrieve_device_info
-            name: Отримати інфо пристрою
+            name: Retrieve Device Info / Отримати інфо пристрою
           - entity: button.online_grid_lfp_3_6_retrieve_logbook
-            name: Отримати журнал
+            name: Retrieve Logbook / Отримати журнал
       - type: entities
-        title: Інформація BMS
+        title: BMS Information / Інформація BMS
         entities:
           - entity: sensor.online_grid_lfp_3_6_errors
-            name: Помилки
+            name: BMS Errors / Помилки BMS
           - entity: sensor.online_grid_lfp_3_6_balancer_status
-            name: Статус балансира
+            name: Balancer Status / Статус балансира
           - entity: sensor.online_grid_lfp_3_6_total_runtime_formatted
-            name: Загальний час роботи
+            name: Total Runtime / Загальний час роботи
           - entity: switch.online_grid_lfp_3_6_enable_bluetooth_connection
-            name: Bluetooth З'єднання
-
+            name: Bluetooth Connection / З'єднання Bluetooth
