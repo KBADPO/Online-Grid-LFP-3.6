@@ -49,6 +49,7 @@ esphome:
               - text_sensor.template.publish:
                   id: system_status
                   state: "Error: BMS Lockout (Boot)"
+              - script.execute: error_blink_temp_script
             else:
               - if:
                   condition:
@@ -132,6 +133,9 @@ ota:
   platform: esphome
   on_begin:
     then:
+      - globals.set:
+          id: ota_in_progress
+          value: "true"
       - switch.turn_off: ble_client_switch0
       - logger.log: "BLE connection suspended for OTA update"
 
@@ -163,6 +167,9 @@ jk_bms_ble:
 # EN: Global state variables (`bms_error_lockout` is persisted in Flash across reboots)
 # UA: Глобальні змінні стану (`bms_error_lockout` зберігається у Flash-пам'яті між перезавантаженнями)
 globals:
+  - id: ota_in_progress
+    type: bool
+    initial_value: "false"
   - id: bms_has_connected
     type: bool
     initial_value: "false"
@@ -227,14 +234,11 @@ script:
           condition:
             switch.is_off: test_mode
           then:
-            - switch.turn_off: led_online_sw
             - globals.set:
                 id: inverter_turn_on_wait
                 value: "false"
             - script.stop: invertor_start_script
             - script.stop: error_blink_invertor_script
-            - switch.turn_off: invertor_relay
-            - switch.turn_off: led_invertor_sw
             - if:
                 condition:
                   lambda: |-
@@ -250,7 +254,19 @@ script:
                   - switch.turn_off: ssr1
                   - switch.turn_off: chrg_voltage
                   - switch.turn_off: led_charger_sw
-            - delay: 3s
+            - if:
+                condition:
+                  or:
+                    - switch.is_on: invertor_relay
+                    - binary_sensor.is_on: inverter_230v
+                then:
+                  - switch.turn_off: led_online_sw
+                  - switch.turn_off: invertor_relay
+                  - switch.turn_off: led_invertor_sw
+                  - delay: 3s
+                else:
+                  - switch.turn_off: invertor_relay
+                  - switch.turn_off: led_invertor_sw
             - if:
                 condition:
                   and:
@@ -647,9 +663,9 @@ interval:
             - if:
                 condition:
                   and:
-                    - lambda: 'return !id(bms_error_lockout);'
+                    - lambda: 'return !id(bms_error_lockout) && !id(ota_in_progress);'
                     - or:
-                        - lambda: 'return (id(bms_has_connected) || millis() > 60000) && !id(bms_online_status).state;'
+                        - lambda: 'return id(ble_client_switch0).state && (id(bms_has_connected) || millis() > 60000) && !id(bms_online_status).state;'
                         - lambda: 'return id(ssr1).state && id(bms_charging_allowed).has_state() && !id(bms_charging_allowed).state;'
                         - lambda: 'return id(invertor_relay).state && id(bms_discharging_allowed).has_state() && !id(bms_discharging_allowed).state;'
                 then:
@@ -674,6 +690,31 @@ interval:
                           return "Error: BMS Offline!";
                         }
                   - script.execute: error_blink_temp_script
+            # EN: Continuous Bypass state sync (IO18 / led_online_sw): ensures led_online_sw is ON whenever sw2 & Grid 230V are ON
+            # UA: Постійна синхронізація стану Байпас (IO18 / led_online_sw): гарантує увімкнення led_online_sw, коли увімкнені sw2 та Мережа 230В
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return !id(bms_error_lockout);'
+                    - binary_sensor.is_on: online_sw
+                    - binary_sensor.is_on: grid_230v
+                then:
+                  - if:
+                      condition:
+                        and:
+                          - or:
+                              - switch.is_off: led_online_sw
+                              - switch.is_on: invertor_relay
+                          - not:
+                              script.is_running: enter_bypass_mode_script
+                      then:
+                        - script.execute: enter_bypass_mode_script
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: led_online_sw
+                      then:
+                        - switch.turn_off: led_online_sw
             - if:
                 condition:
                   not:

@@ -49,6 +49,7 @@ esphome:
               - text_sensor.template.publish:
                   id: system_status
                   state: "Error: BMS Lockout (Boot)"
+              - script.execute: error_blink_temp_script
             else:
               - if:
                   condition:
@@ -109,6 +110,9 @@ ota:
   platform: esphome
   on_begin:
     then:
+      - globals.set:
+          id: ota_in_progress
+          value: "true"
       - switch.turn_off: ble_client_switch0
       - logger.log: "BLE connection suspended for OTA update"
 
@@ -140,6 +144,9 @@ jk_bms_ble:
 # EN: Global state variables (`bms_error_lockout` is persisted in Flash across reboots)
 # UA: Глобальні змінні стану (`bms_error_lockout` зберігається у Flash-пам'яті між перезавантаженнями)
 globals:
+  - id: ota_in_progress
+    type: bool
+    initial_value: "false"
   - id: bms_has_connected
     type: bool
     initial_value: "false"
@@ -482,9 +489,9 @@ interval:
             - if:
                 condition:
                   and:
-                    - lambda: 'return !id(bms_error_lockout);'
+                    - lambda: 'return !id(bms_error_lockout) && !id(ota_in_progress);'
                     - or:
-                        - lambda: 'return (id(bms_has_connected) || millis() > 60000) && !id(bms_online_status).state;'
+                        - lambda: 'return id(ble_client_switch0).state && (id(bms_has_connected) || millis() > 60000) && !id(bms_online_status).state;'
                         - lambda: 'return id(ssr1).state && id(bms_charging_allowed).has_state() && !id(bms_charging_allowed).state;'
                         - lambda: 'return id(invertor_relay).state && id(bms_discharging_allowed).has_state() && !id(bms_discharging_allowed).state;'
                 then:
